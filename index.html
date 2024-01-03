@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Campatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Unit Converter</title>
+        <link rel="stylesheet" href="style.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+        <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+        <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+        <script src="js/category.js"></script>
+        <script src="js/crossref.js"></script>
+        <script src="js/uom.js"></script>
+
+    </head>
+    <body>
+        <div class="image-container">
+            <img src="https://trueworldfoods.com/upfile/board/1/thumb/img_202003_5e70050d011da.jpg" alt="TWF logo" width="200">
+        
+        </div>
+        <div class="container">
+            <h1 id="heading">Seasoft to Sage X3 products UOM converter</h1>
+            <div id="content">
+
+                <div class="button-group">
+                    <button class="button1" type="button" id="seasoft-products-button">
+                        <span class="button__text">Upload Seasoft products</span>
+                        <span class="button__icon">
+                            <ion-icon name="cloud-upload-outline"></ion-icon>
+                        </span>
+                    </button>
+                    <input type="file" id="seasoft-products-csv" accept=".csv" hidden> 
+
+                    <button class="button2" type="button" id="sales-history-button">
+                        <span class="button__text">Upload Sales History</span>
+                        <span class="button__icon">
+                            <ion-icon name="cloud-upload-outline"></ion-icon>
+                        </span>
+                    </button>
+                    <input type="file" id="sales-history-csv" accept=".csv" hidden> 
+
+                    
+                    <button class="button3" type="button" id="process-data-button">
+                        <span class="button__text">Process the data</span>
+                        <span class="button__icon">
+                            <ion-icon name="cog-outline"></ion-icon>
+                        </span>
+                    </button>
+
+                    <button class="button3" type="button" id="download-results-button">
+                        <span class="button__text">Download the results</span>
+                        <span class="button__icon">
+                            <ion-icon name="cloud-download-outline"></ion-icon>
+                        </span>
+                    </button>
+                   
+                </div>
+
+            </div>
+        </div>
+
+    </body>
+    <script>
+        let products = [];
+        let salesData = {};
+        let categoryData = readCategoryData();
+        console.log(categoryData);
+        let csv = "";
+
+        document.getElementById("seasoft-products-button").onclick = function() {
+            document.getElementById("seasoft-products-csv").click();
+        }
+        document.getElementById("seasoft-products-csv").addEventListener('change', (event) => {
+            //console.log(event.target.files);
+            //console.log(event.target.files[0]);
+
+            const file = event.target.files[0];
+
+            const reader = new FileReader();
+            reader.addEventListener('load', event => {
+                // debugger;
+                let raw = event.target.result;
+
+                const data = Papa.parse(raw, {skipEmptyLines: true});
+
+                //console.log(data);
+                products = data.data.slice(4);
+               // createTable(data.data, table);
+               console.log(products);
+
+            });
+
+            reader.readAsText(file);
+        });
+
+        document.getElementById("sales-history-button").onclick = function() {
+            document.getElementById("sales-history-csv").click();
+        }
+        document.getElementById("sales-history-csv").addEventListener('change', (event) => {
+            //console.log(event.target.files);
+            //console.log(event.target.files[0]);
+
+            const file = event.target.files[0];
+
+            const reader = new FileReader();
+            reader.addEventListener('load', event => {
+                let raw = event.target.result;
+                const data = Papa.parse(raw, {skipEmptyLines: true});
+                let salesRecords = data.data.slice(2); // skipping 2 first lines in csv file
+                salesRecords.forEach((salesElement) => {
+                    let key = salesElement[2].trim();
+                    if (salesData[key] == undefined) {
+                        salesData[key] = {
+                            //pricingUnit: [] 
+                            isInteger : true
+                        }
+                    } 
+                    //salesData[key].pricingUnit.push(salesElement[13].trim()); 
+                    let pricingUnits = new Set(salesData[key].pricingUnit);
+                    pricingUnits.add(salesElement[13].trim());
+                    salesData[key].pricingUnit = pricingUnits;
+                    
+                    let unitOfMeasures = new Set(salesData[key].unitOfMeasure);
+                    unitOfMeasures.add(salesElement[22].trim());
+                    salesData[key].unitOfMeasure = unitOfMeasures; 
+
+                    let qtyShipped = new Set(salesData[key].qtyShipped);
+                    qtyShipped.add(salesElement[8].trim());
+                    salesData[key].qtyShipped = qtyShipped; 
+                    if (salesElement[8].trim() != "") {
+                        salesData[key].isInteger = salesData[key].isInteger && Number.isInteger(parseFloat(salesElement[8].trim()));
+                    }
+                });
+
+                console.log(salesData);
+            });
+            reader.readAsText(file);
+        });
+
+        document.getElementById("process-data-button").onclick = function() {
+            let result = convert(products, salesData, categoryData);
+            console.log(result);
+            let data = [];
+            for (const key in result) {
+                let item = result[key];
+                item["code"] = key;
+                
+                data.push(item);
+            }
+            csv = Papa.unparse(data,{columns: ["code", "description1", "description2", "unified_description", "isInteger", "qtyShipped", "major", "minor", "category", "statusX3", "catchWeight", "stockUnitX3", "stockUnit", "seasoft_STU_STK_conv", "sales$LB", "weightUnit", "weightG", "weightMultip", "weightKG", "weightLB", "weightOZ", "itemWeight", "volumeL", "volumeML", "volumeOZ", "volumeGAL", "volumeMultip", "volumeUnit", "STK_volume", "statisticalUnit", "STA_STK_conv", "purchaseUnitX3", "purSTKconv", "salesUnitX3", "salSTKconv", "pack1", "pack1STKcoef", "pack2", "pack2STKcoef"]});
+            console.log(csv);
+        }
+
+        document.getElementById("download-results-button").onclick = function() {
+            let data = new Blob([csv]);
+            let now = new Date(); 
+            let filename = "uomResults-" + now.getDate() +"_"+ now.getHours() +"_"+ now.getMinutes() + ".csv";
+            var element = document.createElement('a');
+            element.href = URL.createObjectURL(data);
+            element.download = filename;
+
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+    </script>
+    <!--<script src="uom.js"></script> 
+    <script src="sales_history_uom.js"></script> 
+    <script src="uom_crossreference.js"></script> 
+    <script src="category.js"></script>-->
+</html>
